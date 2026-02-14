@@ -1,3 +1,10 @@
+// ignore_for_file: unnecessary_null_comparison
+
+import 'dart:math';
+import 'dart:typed_data';
+import 'package:path_provider/path_provider.dart';
+import 'package:crop_your_image/crop_your_image.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:responsive_ui/responsive_ui.dart';
@@ -7,7 +14,12 @@ import 'package:sport/upperCase.dart';
 import 'controller/controller.dart';
 
 // ignore: use_key_in_widget_constructors, must_be_immutable
-class PlantelUi extends StatelessWidget {
+class PlantelUi extends StatefulWidget {
+  @override
+  State<PlantelUi> createState() => _PlantelUiState();
+}
+
+class _PlantelUiState extends State<PlantelUi> {
   final List<String> items = [
     "GOL",
     "LD",
@@ -19,6 +31,9 @@ class PlantelUi extends StatelessWidget {
   ];
 
   List<int> numbers = List.generate(99, (index) => index + 1);
+  final Controller c = Get.put(Controller());
+  RxBool ativos = true.obs;
+  Rx<Uint8List> img = Uint8List(0).obs;
 
   cadastroJogador(BuildContext context) {
     TextEditingController nome = TextEditingController();
@@ -38,6 +53,33 @@ class PlantelUi extends StatelessWidget {
                 width: context.isPhone ? Get.width : context.width / 3,
                 child: Wrap(
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.all(2.0),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            InkWell(
+                              onTap: () {
+                                _pickAndUploadImageCad();
+                              },
+                              child: CircleAvatar(
+                                backgroundImage:
+                                    img.value.isNotEmpty ? MemoryImage(img.value) : null,
+                                radius: 30.0,
+                                child: img.value.isNotEmpty
+                                    ? null
+                                    : Icon(
+                                        Icons.person,
+                                        size: 30,
+                                        color: Colors.white,
+                                      ),
+                              ),
+                            ),
+                            Text("Selecione uma foto"),
+                          ],
+                        ),
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.all(2.0),
                       child: TextField(
@@ -96,13 +138,29 @@ class PlantelUi extends StatelessWidget {
                 child: const Text("Cancelar"),
               ),
               TextButton(
-                onPressed: () {
-                  c.createJogador(JogadorData(
+                onPressed: () async {
+                  var publicUrl;
+                  if (img.value.isNotEmpty) {
+                    final path = 'fotos_perfil/${Random().nextInt(10000).toString()}.png';
+                    final response =
+                        await c.supabase.storage.from('arquivos').uploadBinary(path, img.value);
+
+                    if (response != null) {
+                      publicUrl = c.supabase.storage.from("arquivos").getPublicUrl(path);
+                      print('Upload completo: $publicUrl');
+                    } else {
+                      print('Erro no upload');
+                    }
+                  }
+
+                  await c.createJogador(JogadorData(
                     nome: nome.text,
                     posicao: posicao.value,
                     numero: numero.value,
                     ativo: true,
                     gols: 0,
+                    jogos: 0,
+                    foto: img.value.isNotEmpty ? publicUrl : null,
                     assistencias: 0,
                     cartaoAmarelo: 0,
                     cartaoVermelho: 0,
@@ -114,7 +172,9 @@ class PlantelUi extends StatelessWidget {
           ),
         );
       },
-    );
+    ).whenComplete(() {
+      img.value = Uint8List(0);
+    });
   }
 
   editJogador(BuildContext context, JogadorData jData) {
@@ -133,6 +193,25 @@ class PlantelUi extends StatelessWidget {
                 width: context.isPhone ? Get.width : context.width / 3,
                 child: Wrap(
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.all(2.0),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            InkWell(
+                              onTap: () {
+                                _pickAndUploadImage(jData);
+                              },
+                              child: CircleAvatar(
+                                backgroundImage: NetworkImage(jData.foto ?? ""),
+                                radius: 30.0,
+                              ),
+                            ),
+                            Text("Foto atual"),
+                          ],
+                        ),
+                      ),
+                    ),
                     Padding(
                       padding: const EdgeInsets.all(2.0),
                       child: TextField(
@@ -205,9 +284,121 @@ class PlantelUi extends StatelessWidget {
     );
   }
 
-  final Controller c = Get.put(Controller());
+  Future<void> _pickAndUploadImage(JogadorData jData) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
 
-  RxBool ativos = true.obs;
+      withData: true, // <-- aqui é importante no web
+    );
+
+    if (result != null) {
+      // Pegamos os bytes
+      final fileBytes = result.files.single.bytes;
+      final controller = CropController();
+
+      Get.dialog(
+        AlertDialog(
+          title: Text("Recortar Imagem"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Get.back();
+              },
+              child: Text("Cancelar"),
+            ),
+            TextButton(
+              onPressed: () async {
+                controller.crop();
+              },
+              child: Text("Salvar"),
+            ),
+          ],
+          content: SizedBox(
+            width: 100,
+            height: 100,
+            child: Center(
+              child: Crop(
+                image: fileBytes!,
+                controller: controller,
+                onCropped: (result) async {
+                  switch (result) {
+                    case CropSuccess():
+                      var imgcup = result.croppedImage;
+
+                      final path = 'fotos_perfil/${Random().nextInt(10000).toString()}.png';
+
+                      final response =
+                          await c.supabase.storage.from('arquivos').uploadBinary(path, imgcup);
+
+                      if (response != null) {
+                        final publicUrl = c.supabase.storage.from("arquivos").getPublicUrl(path);
+                        jData.foto = publicUrl;
+                        c.editJogador(jData);
+                        print('Upload completo: $publicUrl');
+                      } else {
+                        print('Erro no upload');
+                      }
+                    case CropFailure():
+                  }
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _pickAndUploadImageCad() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      withData: true,
+    );
+
+    if (result != null) {
+      final fileBytes = result.files.single.bytes;
+      final controller = CropController();
+
+      Get.dialog(
+        AlertDialog(
+          title: Text("Recortar Imagem"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Get.back();
+              },
+              child: Text("Cancelar"),
+            ),
+            TextButton(
+              onPressed: () async {
+                controller.crop();
+              },
+              child: Text("Salvar"),
+            ),
+          ],
+          content: SizedBox(
+            width: 100,
+            height: 100,
+            child: Center(
+              child: Crop(
+                image: fileBytes!,
+                controller: controller,
+                onCropped: (result) async {
+                  switch (result) {
+                    case CropSuccess():
+                      img.value = result.croppedImage;
+                      Get.back();
+
+                    case CropFailure():
+                  }
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -348,9 +539,33 @@ class PlantelUi extends StatelessWidget {
                               ],
                             ),
                             subtitle: Text(jogador.posicao ?? ""),
-                            leading: CircleAvatar(
-                              backgroundImage: NetworkImage(jogador.foto ?? ""),
-                              radius: 30.0,
+                            leading: Material(
+                              shape: CircleBorder(),
+                              clipBehavior: Clip.hardEdge,
+                              child: jogador.foto == null
+                                  ? InkWell(
+                                      onTap: () {
+                                        // _pickAndUploadImage(jogador);
+                                      },
+                                      child: CircleAvatar(
+                                        backgroundColor: Colors.lightBlueAccent[300],
+                                        radius: 30.0,
+                                        child: Icon(
+                                          Icons.person,
+                                          size: 30,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    )
+                                  : InkWell(
+                                      onTap: () {
+                                        // _pickAndUploadImage(jogador);
+                                      },
+                                      child: CircleAvatar(
+                                        backgroundImage: NetworkImage(jogador.foto ?? ""),
+                                        radius: 30.0,
+                                      ),
+                                    ),
                             ),
                             children: [
                               Container(

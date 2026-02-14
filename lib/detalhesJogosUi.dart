@@ -6,6 +6,7 @@ import 'package:sport/data/jogador_data.dart';
 import 'package:sport/data/jogos_data.dart';
 import 'package:sport/data/relacionadosJogo_data.dart';
 import 'package:sport/data/substituicoes_data.dart';
+import 'package:sport/resumoPartida.dart';
 
 RxMap<String, dynamic> escalacao = {
   "GOL": null,
@@ -318,6 +319,8 @@ class _DetalhesJogosUiState extends State<DetalhesJogosUi> {
   }
 
   relacionados(BuildContext context, Controller c, JogosData jogosData) {
+    RxBool ativos = true.obs;
+
     return showGeneralDialog(
       context: context,
 
@@ -329,12 +332,20 @@ class _DetalhesJogosUiState extends State<DetalhesJogosUi> {
           () => Scaffold(
             appBar: AppBar(
               title: Text('Relacionados'),
+              actions: [
+                Checkbox(
+                    value: ativos.value,
+                    onChanged: (_) {
+                      ativos.value = !ativos.value;
+                    }),
+              ],
             ),
             body: SingleChildScrollView(
               child: Wrap(
                 children: [
                   Wrap(
-                    children: c.jogadores.where((element) => element.ativo == true).map((e) {
+                    children:
+                        c.jogadores.where((element) => element.ativo == ativos.value).map((e) {
                       RxBool select = c.relJogo
                           .where((element) => element.idJogador == e.id)
                           .where((element) => element.idJogo == jogosData.id)
@@ -458,6 +469,13 @@ class _DetalhesJogosUiState extends State<DetalhesJogosUi> {
                         editPartida(context, jogosData, c);
                       },
                       icon: Icon(Icons.edit_outlined)),
+                  IconButton(
+                      onPressed: () {
+                        Get.to(() => ResumoPartidaUi(
+                              jogosData: jogosData,
+                            ));
+                      },
+                      icon: Icon(Icons.share_outlined)),
                 ],
         ),
         body: Listener(
@@ -508,6 +526,26 @@ class _DetalhesJogosUiState extends State<DetalhesJogosUi> {
                                       readOnly: true,
                                       textAlign: TextAlign.center,
                                       decoration: InputDecoration(
+                                        prefixIcon: IconButton(
+                                            onPressed: () async {
+                                              if (jogosData.placarLocal == 0) {
+                                                return;
+                                              } else {
+                                                jogosData.placarLocal = jogosData.placarLocal! - 1;
+                                                placarLocal.value.text =
+                                                    jogosData.placarLocal.toString();
+                                                await c.changePlacar(jogosData);
+                                              }
+                                            },
+                                            icon: Icon(Icons.remove_circle_outline_sharp)),
+                                        suffixIcon: IconButton(
+                                            onPressed: () async {
+                                              jogosData.placarLocal = jogosData.placarLocal! + 1;
+                                              placarLocal.value.text =
+                                                  jogosData.placarLocal.toString();
+                                              await c.changePlacar(jogosData);
+                                            },
+                                            icon: Icon(Icons.add_circle)),
                                         filled: true,
                                       ),
                                     ),
@@ -989,33 +1027,33 @@ class _DetalhesJogosUiState extends State<DetalhesJogosUi> {
                                                             icon:
                                                                 Icon(Icons.sports_soccer_rounded)),
                                                       ),
-                                                      Tooltip(
-                                                        message: "Assistencias",
-                                                        child: IconButton(
-                                                            onPressed: () async {
-                                                              RelacionadosjogoData
-                                                                  relacionadosjogoData = c.relJogo
-                                                                      .where((p0) =>
-                                                                          p0.idJogador == e.id)
-                                                                      .where((p0) =>
-                                                                          p0.idJogo == jogosData.id)
-                                                                      .first;
+                                                      // Tooltip(
+                                                      //   message: "Assistencias",
+                                                      //   child: IconButton(
+                                                      //       onPressed: () async {
+                                                      //         RelacionadosjogoData
+                                                      //             relacionadosjogoData = c.relJogo
+                                                      //                 .where((p0) =>
+                                                      //                     p0.idJogador == e.id)
+                                                      //                 .where((p0) =>
+                                                      //                     p0.idJogo == jogosData.id)
+                                                      //                 .first;
 
-                                                              relacionadosjogoData.assistencias =
-                                                                  relacionadosjogoData
-                                                                          .assistencias! +
-                                                                      1;
+                                                      //         relacionadosjogoData.assistencias =
+                                                      //             relacionadosjogoData
+                                                      //                     .assistencias! +
+                                                      //                 1;
 
-                                                              e.assistencias = e.assistencias! + 1;
-                                                              c.relJogo.refresh();
-                                                              c.jogadores.refresh();
+                                                      //         e.assistencias = e.assistencias! + 1;
+                                                      //         c.relJogo.refresh();
+                                                      //         c.jogadores.refresh();
 
-                                                              await c.incrementAssistJogador(
-                                                                  relacionadosjogoData);
-                                                            },
-                                                            icon: Icon(
-                                                                Icons.format_color_text_rounded)),
-                                                      ),
+                                                      //         await c.incrementAssistJogador(
+                                                      //             relacionadosjogoData);
+                                                      //       },
+                                                      //       icon: Icon(
+                                                      //           Icons.format_color_text_rounded)),
+                                                      // ),
                                                     ],
                                                   )
                                           ],
@@ -1051,7 +1089,7 @@ Widget escalacao442(JogosData jData, context, Controller c) {
         ),
       ),
       Positioned(
-        bottom: 42,
+        bottom: 32,
         child: DragTarget(
           builder: (context, accepted, rejected) {
             return UiJogadorMapa(
@@ -1110,7 +1148,7 @@ Widget escalacao442(JogosData jData, context, Controller c) {
         ),
       ),
       Positioned(
-        bottom: 100,
+        bottom: 90,
         right: 100,
         child: DragTarget(
           builder: (context, accepted, rejected) {
@@ -1128,7 +1166,7 @@ Widget escalacao442(JogosData jData, context, Controller c) {
         ),
       ),
       Positioned(
-        bottom: 100,
+        bottom: 90,
         left: 100,
         child: DragTarget(
           builder: (context, accepted, rejected) {
@@ -1274,53 +1312,82 @@ class UiJogadorMapa extends StatelessWidget {
 
     return Column(
       children: [
-        Tooltip(
-          message:
-              quemSai.idJogadorEntra?.nome == null ? "" : "Entra: ${quemSai.idJogadorEntra?.nome}",
-          child: Badge(
-            isLabelVisible: quemSai.idJogadorEntra?.nome == null ? false : true,
-            backgroundColor: Colors.transparent,
-            alignment: Alignment.centerRight,
-            label: Icon(
-              Icons.arrow_downward_sharp,
-              color: Colors.red.shade800,
-              size: 16,
+        Badge(
+          isLabelVisible: quemSai.idJogadorEntra?.nome == null ? false : true,
+          backgroundColor: Colors.transparent,
+          alignment: Alignment.centerRight,
+          label: Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
             ),
-            child: Badge(
-              largeSize: 10,
-              padding: EdgeInsets.all(2),
-              isLabelVisible:
-                  c.getNumGols(jogadorData.id ?? 0, jogosData.id ?? 0) == 0 ? false : true,
-              label: Text(
-                c.getNumGols(jogadorData.id ?? 0, jogosData.id ?? 0).toString(),
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            elevation: 10,
+            color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.all(2.0),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.arrow_upward_sharp,
+                    color: Colors.green.shade800,
+                    size: 16,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 2, left: 2),
+                    child: Text(
+                      quemSai.idJogadorEntra?.nome ?? "",
+                      style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54),
+                    ),
+                  ),
+                ],
               ),
-              child: InkWell(
-                onDoubleTap: c.supabase.auth.currentUser == null
-                    ? null
-                    : () {
-                        substituicoesDialog(context, jogosData, c, jogadorData);
-                      },
-                child: Image.asset(
-                  jogosData.uniforme == 1
-                      ? 'assets/images/mini1.png'
-                      : jogosData.uniforme == 2
-                          ? 'assets/images/mini2.png'
-                          : 'assets/images/mini3.png',
-                  scale: 7,
-                ),
+            ),
+          ),
+          child: Badge(
+            largeSize: 10,
+            padding: EdgeInsets.all(2),
+            isLabelVisible:
+                c.getNumGols(jogadorData.id ?? 0, jogosData.id ?? 0) == 0 ? false : true,
+            label: Text(
+              c.getNumGols(jogadorData.id ?? 0, jogosData.id ?? 0).toString(),
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            child: InkWell(
+              onDoubleTap: c.supabase.auth.currentUser == null
+                  ? null
+                  : () {
+                      substituicoesDialog(context, jogosData, c, jogadorData);
+                    },
+              child: Image.asset(
+                jogosData.uniforme == 1
+                    ? 'assets/images/mini1.png'
+                    : jogosData.uniforme == 2
+                        ? 'assets/images/mini2.png'
+                        : 'assets/images/mini3.png',
+                scale: 7,
               ),
             ),
           ),
         ),
         Row(
           children: [
-            Text(
-              jogadorData.nome ?? "",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              children: [
+                quemSai.idJogadorEntra?.nome == null
+                    ? Container()
+                    : Icon(
+                        Icons.arrow_downward_sharp,
+                        color: Colors.red.shade800,
+                        size: 16,
+                      ),
+                Text(
+                  jogadorData.nome ?? "",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

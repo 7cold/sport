@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
@@ -7,13 +10,33 @@ import 'package:sport/controller/controller.dart';
 import 'package:sport/data/jogador_data.dart';
 import 'package:sport/detalhesJogosUi.dart';
 import 'package:sport/homeUi.dart';
-import 'package:sport/image_converter.dart';
 import 'package:sport/login.dart';
+
+import 'package:widgets_to_image/widgets_to_image.dart';
 import 'package:sport/plantel.dart';
 import 'package:sport/rankingArtilhariaGeralUi.dart';
-import 'package:widgets_to_png/widgets_to_png.dart';
+
+import 'package:path_provider/path_provider.dart';
+import 'package:image_downloader_web/image_downloader_web.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 final Controller c = Get.put(Controller());
+
+Future<void> saveImageToFile(Uint8List bytes) async {
+  final directory = await getDownloadsDirectory(); // ou getApplicationDocumentsDirectory()
+  final path = '${directory!.path}/minha_imagem.png';
+  final file = File(path);
+  await file.writeAsBytes(bytes);
+  print('Imagem salva em: $path');
+}
+
+Future<void> downloadImageWeb(Uint8List bytes) async {
+  await WebImageDownloader.downloadImageFromUInt8List(
+    uInt8List: bytes,
+    name: "minha_imagem_web",
+    imageType: ImageType.png,
+  );
+}
 
 class HomeVisitante extends StatelessWidget {
   const HomeVisitante({super.key});
@@ -145,23 +168,29 @@ class RankingArtilhariaVisit extends StatelessWidget {
     List<JogadorData> list = c.jogadores.where((jogador) => jogador.ativo == true).toList();
     list.sort((a, b) => b.gols!.compareTo(a.gols!));
 
-    final GlobalKey _globalKey = GlobalKey();
+    // WidgetsToImageController to access widget
+    WidgetsToImageController controller = WidgetsToImageController();
+    Uint8List? bytes;
 
-    return WidgetToPng(
-      keyToCapture: _globalKey,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-        child: Badge(
-          alignment: Alignment.topLeft,
-          backgroundColor: Colors.transparent,
-          label: IconButton.filled(
-              onPressed: () async {
-                await ImageConverter.saveWidgetToGallery(
-                  key: _globalKey,
-                  fileName: 'captured_widget.png',
-                );
-              },
-              icon: Icon(Icons.camera_alt_outlined)),
+    return Badge(
+      isLabelVisible: c.supabase.auth.currentUser != null,
+      alignment: Alignment.topLeft,
+      backgroundColor: Colors.transparent,
+      label: IconButton.filled(
+          onPressed: () async {
+            final bytes = await controller.capture();
+
+            if (kIsWeb) {
+              await downloadImageWeb(bytes!);
+            } else {
+              await saveImageToFile(bytes!);
+            }
+          },
+          icon: Icon(Icons.camera_alt_outlined)),
+      child: WidgetsToImage(
+        controller: controller,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
           child: Card(
             color: Colors.white,
             child: InkWell(
@@ -272,76 +301,97 @@ class RankingArtilhariaVisit extends StatelessWidget {
 class UltimosJogos extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    WidgetsToImageController controller = WidgetsToImageController();
+    Uint8List? bytes;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
       child: SizedBox(
         height: 210,
-        child: Card(
-          color: Colors.white,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: () {
-              Get.to(() => Calendariojogosui());
-            },
-            child: Container(
-              margin: EdgeInsets.all(10),
-              padding: EdgeInsets.all(10),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "Histórico de Jogos",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 40),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Image.asset(
-                          "assets/images/sport.png",
-                          width: 45,
+        child: Badge(
+          isLabelVisible: c.supabase.auth.currentUser != null,
+          alignment: Alignment.topLeft,
+          backgroundColor: Colors.transparent,
+          label: IconButton.filled(
+              onPressed: () async {
+                final bytes = await controller.capture();
+                if (kIsWeb) {
+                  await downloadImageWeb(bytes!);
+                } else {
+                  await saveImageToFile(bytes!);
+                }
+              },
+              icon: Icon(Icons.camera_alt_outlined)),
+          child: WidgetsToImage(
+            controller: controller,
+            child: Card(
+              color: Colors.white,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () {
+                  Get.to(() => Calendariojogosui());
+                },
+                child: Container(
+                  margin: EdgeInsets.all(10),
+                  padding: EdgeInsets.all(10),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Histórico de Jogos",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 40),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Image.asset(
+                              "assets/images/sport.png",
+                              width: 45,
+                            ),
+                            Row(
+                                children: c.jogos
+                                    .where(
+                                        (e) => (e.data ?? DateTime.now()).isBefore(DateTime.now()))
+                                    .where((e) => e.isCancelado != true)
+                                    .map((e) {
+                                      if ((e.placarLocal ?? 0) > (e.placarAdversario ?? 0)) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(left: 6),
+                                          child: CircleAvatar(
+                                            backgroundColor: Colors.green,
+                                            radius: 5,
+                                          ),
+                                        );
+                                      } else if ((e.placarLocal ?? 0) < (e.placarAdversario ?? 0)) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(left: 6),
+                                          child: CircleAvatar(
+                                            backgroundColor: Colors.red,
+                                            radius: 5,
+                                          ),
+                                        );
+                                      } else {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(left: 6),
+                                          child: CircleAvatar(
+                                            backgroundColor: Colors.grey[400],
+                                            radius: 5,
+                                          ),
+                                        );
+                                      }
+                                    })
+                                    .toList()
+                                    .take(5)
+                                    .toList())
+                          ],
                         ),
-                        Row(
-                            children: c.jogos
-                                .where((e) => (e.data ?? DateTime.now()).isBefore(DateTime.now()))
-                                .where((e) => e.isCancelado != true)
-                                .map((e) {
-                                  if ((e.placarLocal ?? 0) > (e.placarAdversario ?? 0)) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(left: 6),
-                                      child: CircleAvatar(
-                                        backgroundColor: Colors.green,
-                                        radius: 5,
-                                      ),
-                                    );
-                                  } else if ((e.placarLocal ?? 0) < (e.placarAdversario ?? 0)) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(left: 6),
-                                      child: CircleAvatar(
-                                        backgroundColor: Colors.red,
-                                        radius: 5,
-                                      ),
-                                    );
-                                  } else {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(left: 6),
-                                      child: CircleAvatar(
-                                        backgroundColor: Colors.grey[400],
-                                        radius: 5,
-                                      ),
-                                    );
-                                  }
-                                })
-                                .toList()
-                                .take(5)
-                                .toList())
-                      ],
-                    ),
-                  )
-                ],
+                      )
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -354,257 +404,278 @@ class UltimosJogos extends StatelessWidget {
 class ProximoJogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    WidgetsToImageController controller = WidgetsToImageController();
+    Uint8List? bytes;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
       child: SizedBox(
         height: 268,
-        child: Card(
-          color: Colors.white,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: c.proximoJogo().data == null
-                ? null
-                : () {
-                    Get.to(() => DetalhesJogosUi(), arguments: c.proximoJogo());
-                  },
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Column(
-                children: [
-                  HugeIcon(
-                    icon: HugeIcons.strokeRoundedFootballPitch,
-                    color: Get.theme.primaryColor,
-                    size: 30,
-                  ),
-                  Text("Próximo Jogo", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 5),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Wrap(
-                      children: [
-                        c.proximoJogo().data == null
-                            ? SizedBox(
-                                child: Center(child: Text("Sem jogos agendados")),
-                              )
-                            : Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Wrap(
-                                    runAlignment: WrapAlignment.spaceBetween,
-                                    alignment: WrapAlignment.spaceBetween,
+        child: Badge(
+          isLabelVisible: c.supabase.auth.currentUser != null,
+          alignment: Alignment.topLeft,
+          backgroundColor: Colors.transparent,
+          label: IconButton.filled(
+              onPressed: () async {
+                final bytes = await controller.capture();
+                if (kIsWeb) {
+                  await downloadImageWeb(bytes!);
+                } else {
+                  await saveImageToFile(bytes!);
+                }
+              },
+              icon: Icon(Icons.camera_alt_outlined)),
+          child: WidgetsToImage(
+            controller: controller,
+            child: Card(
+              color: Colors.white,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: c.proximoJogo().data == null
+                    ? null
+                    : () {
+                        Get.to(() => DetalhesJogosUi(), arguments: c.proximoJogo());
+                      },
+                child: Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: Column(
+                    children: [
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedFootballPitch,
+                        color: Get.theme.primaryColor,
+                        size: 30,
+                      ),
+                      Text("Próximo Jogo",
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      SizedBox(height: 5),
+                      SizedBox(
+                        width: double.infinity,
+                        child: Wrap(
+                          children: [
+                            c.proximoJogo().data == null
+                                ? SizedBox(
+                                    child: Center(child: Text("Sem jogos agendados")),
+                                  )
+                                : Column(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Flex(
-                                        direction: Axis.horizontal,
+                                      Wrap(
+                                        runAlignment: WrapAlignment.spaceBetween,
+                                        alignment: WrapAlignment.spaceBetween,
                                         children: [
-                                          Expanded(
-                                            child: Padding(
-                                              padding: const EdgeInsets.only(bottom: 8),
-                                              child: Text(c.dateFormatterSimple
-                                                  .format(c.proximoJogo().data ?? DateTime.now())),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: Padding(
-                                              padding: const EdgeInsets.only(bottom: 8),
-                                              child: Align(
-                                                alignment: Alignment.centerRight,
-                                                child: Text(
-                                                    "${c.dateFormatterHora.format(c.proximoJogo().hora ?? DateTime.now())} hrs"),
+                                          Flex(
+                                            direction: Axis.horizontal,
+                                            children: [
+                                              Expanded(
+                                                child: Padding(
+                                                  padding: const EdgeInsets.only(bottom: 8),
+                                                  child: Text(c.dateFormatterSimple.format(
+                                                      c.proximoJogo().data ?? DateTime.now())),
+                                                ),
                                               ),
-                                            ),
+                                              Expanded(
+                                                child: Padding(
+                                                  padding: const EdgeInsets.only(bottom: 8),
+                                                  child: Align(
+                                                    alignment: Alignment.centerRight,
+                                                    child: Text(
+                                                        "${c.dateFormatterHora.format(c.proximoJogo().hora ?? DateTime.now())} hrs"),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
+                                      c.proximoJogo().emCasa == true
+                                          ? Wrap(
+                                              children: [
+                                                Wrap(
+                                                  children: [
+                                                    Flex(
+                                                      direction: Axis.horizontal,
+                                                      children: [
+                                                        Expanded(
+                                                          child: Container(
+                                                            width: 45.0,
+                                                            height: 45.0,
+                                                            decoration: BoxDecoration(
+                                                              shape: BoxShape.circle,
+                                                              image: DecorationImage(
+                                                                  image: AssetImage(
+                                                                "assets/images/sport.png",
+                                                              )),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          flex: 2,
+                                                          child: Text(
+                                                            "Sport",
+                                                            style: TextStyle(
+                                                                fontWeight: FontWeight.bold,
+                                                                fontSize: 18.0),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          child: Center(
+                                                            child: Text(
+                                                              "",
+                                                              style: TextStyle(
+                                                                  fontWeight: FontWeight.bold,
+                                                                  fontSize: 18.0),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                                Wrap(
+                                                  children: [
+                                                    Flex(
+                                                      direction: Axis.horizontal,
+                                                      children: [
+                                                        Expanded(
+                                                          child: Container(
+                                                            width: 55.0,
+                                                            height: 55.0,
+                                                            decoration: BoxDecoration(
+                                                              shape: BoxShape.circle,
+                                                              image: DecorationImage(
+                                                                image: AssetImage(
+                                                                  "assets/images/generico.png",
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          flex: 2,
+                                                          child: Text(
+                                                            c.proximoJogo().adversario ?? "",
+                                                            style: TextStyle(
+                                                                fontWeight: FontWeight.bold,
+                                                                fontSize: 18.0),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          child: Center(
+                                                            child: Text(
+                                                              "",
+                                                              style: TextStyle(
+                                                                  fontWeight: FontWeight.bold,
+                                                                  fontSize: 18.0),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            )
+                                          : Wrap(
+                                              children: [
+                                                Wrap(
+                                                  children: [
+                                                    Flex(
+                                                      direction: Axis.horizontal,
+                                                      children: [
+                                                        Expanded(
+                                                          child: Container(
+                                                            width: 55.0,
+                                                            height: 55.0,
+                                                            decoration: BoxDecoration(
+                                                              shape: BoxShape.circle,
+                                                              image: DecorationImage(
+                                                                image: AssetImage(
+                                                                  "assets/images/generico.png",
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          flex: 2,
+                                                          child: Text(
+                                                            c.proximoJogo().adversario ?? "",
+                                                            style: TextStyle(
+                                                                fontWeight: FontWeight.bold,
+                                                                fontSize: 18.0),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          child: Center(
+                                                            child: Text(
+                                                              "",
+                                                              style: TextStyle(
+                                                                  fontWeight: FontWeight.bold,
+                                                                  fontSize: 18.0),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                                Wrap(
+                                                  children: [
+                                                    Flex(
+                                                      direction: Axis.horizontal,
+                                                      children: [
+                                                        Expanded(
+                                                          child: Container(
+                                                            width: 45.0,
+                                                            height: 45.0,
+                                                            decoration: BoxDecoration(
+                                                              shape: BoxShape.circle,
+                                                              image: DecorationImage(
+                                                                  image: AssetImage(
+                                                                "assets/images/sport.png",
+                                                              )),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          flex: 2,
+                                                          child: Text(
+                                                            "Sport",
+                                                            style: TextStyle(
+                                                                fontWeight: FontWeight.bold,
+                                                                fontSize: 18.0),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          child: Center(
+                                                            child: Text(
+                                                              "",
+                                                              style: TextStyle(
+                                                                  fontWeight: FontWeight.bold,
+                                                                  fontSize: 18.0),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 10),
+                                        child: Text(
+                                          c.proximoJogo().local ?? "",
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                  c.proximoJogo().emCasa == true
-                                      ? Wrap(
-                                          children: [
-                                            Wrap(
-                                              children: [
-                                                Flex(
-                                                  direction: Axis.horizontal,
-                                                  children: [
-                                                    Expanded(
-                                                      child: Container(
-                                                        width: 45.0,
-                                                        height: 45.0,
-                                                        decoration: BoxDecoration(
-                                                          shape: BoxShape.circle,
-                                                          image: DecorationImage(
-                                                              image: AssetImage(
-                                                            "assets/images/sport.png",
-                                                          )),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 2,
-                                                      child: Text(
-                                                        "Sport",
-                                                        style: TextStyle(
-                                                            fontWeight: FontWeight.bold,
-                                                            fontSize: 18.0),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Center(
-                                                        child: Text(
-                                                          "",
-                                                          style: TextStyle(
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 18.0),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                            Wrap(
-                                              children: [
-                                                Flex(
-                                                  direction: Axis.horizontal,
-                                                  children: [
-                                                    Expanded(
-                                                      child: Container(
-                                                        width: 55.0,
-                                                        height: 55.0,
-                                                        decoration: BoxDecoration(
-                                                          shape: BoxShape.circle,
-                                                          image: DecorationImage(
-                                                            image: AssetImage(
-                                                              "assets/images/generico.png",
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 2,
-                                                      child: Text(
-                                                        c.proximoJogo().adversario ?? "",
-                                                        style: TextStyle(
-                                                            fontWeight: FontWeight.bold,
-                                                            fontSize: 18.0),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Center(
-                                                        child: Text(
-                                                          "",
-                                                          style: TextStyle(
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 18.0),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        )
-                                      : Wrap(
-                                          children: [
-                                            Wrap(
-                                              children: [
-                                                Flex(
-                                                  direction: Axis.horizontal,
-                                                  children: [
-                                                    Expanded(
-                                                      child: Container(
-                                                        width: 55.0,
-                                                        height: 55.0,
-                                                        decoration: BoxDecoration(
-                                                          shape: BoxShape.circle,
-                                                          image: DecorationImage(
-                                                            image: AssetImage(
-                                                              "assets/images/generico.png",
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 2,
-                                                      child: Text(
-                                                        c.proximoJogo().adversario ?? "",
-                                                        style: TextStyle(
-                                                            fontWeight: FontWeight.bold,
-                                                            fontSize: 18.0),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Center(
-                                                        child: Text(
-                                                          "",
-                                                          style: TextStyle(
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 18.0),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                            Wrap(
-                                              children: [
-                                                Flex(
-                                                  direction: Axis.horizontal,
-                                                  children: [
-                                                    Expanded(
-                                                      child: Container(
-                                                        width: 45.0,
-                                                        height: 45.0,
-                                                        decoration: BoxDecoration(
-                                                          shape: BoxShape.circle,
-                                                          image: DecorationImage(
-                                                              image: AssetImage(
-                                                            "assets/images/sport.png",
-                                                          )),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 2,
-                                                      child: Text(
-                                                        "Sport",
-                                                        style: TextStyle(
-                                                            fontWeight: FontWeight.bold,
-                                                            fontSize: 18.0),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      child: Center(
-                                                        child: Text(
-                                                          "",
-                                                          style: TextStyle(
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 18.0),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 10),
-                                    child: Text(
-                                      c.proximoJogo().local ?? "",
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ],
-                    ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -617,252 +688,277 @@ class ProximoJogo extends StatelessWidget {
 class UltimoJogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    WidgetsToImageController controller = WidgetsToImageController();
+    Uint8List? bytes;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
       child: SizedBox(
         height: 268,
-        child: Card(
-          color: Colors.white,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: () {
-              Get.to(() => DetalhesJogosUi(), arguments: c.ultimoJogo());
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Column(
-                children: [
-                  HugeIcon(
-                    icon: HugeIcons.strokeRoundedFootballPitch,
-                    color: Get.theme.primaryColor,
-                    size: 30,
-                  ),
-                  Text("Último Jogo", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 5),
-                  SizedBox(
-                    width: double.infinity,
-                    child: Wrap(
-                      children: [
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Badge(
+          isLabelVisible: c.supabase.auth.currentUser != null,
+          alignment: Alignment.topLeft,
+          backgroundColor: Colors.transparent,
+          label: IconButton.filled(
+              onPressed: () async {
+                final bytes = await controller.capture();
+                if (kIsWeb) {
+                  await downloadImageWeb(bytes!);
+                } else {
+                  await saveImageToFile(bytes!);
+                }
+              },
+              icon: Icon(Icons.camera_alt_outlined)),
+          child: WidgetsToImage(
+            controller: controller,
+            child: Card(
+              color: Colors.white,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () {
+                  Get.to(() => DetalhesJogosUi(), arguments: c.ultimoJogo());
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: Column(
+                    children: [
+                      HugeIcon(
+                        icon: HugeIcons.strokeRoundedFootballPitch,
+                        color: Get.theme.primaryColor,
+                        size: 30,
+                      ),
+                      Text("Último Jogo",
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      SizedBox(height: 5),
+                      SizedBox(
+                        width: double.infinity,
+                        child: Wrap(
                           children: [
-                            Wrap(
-                              runAlignment: WrapAlignment.spaceBetween,
-                              alignment: WrapAlignment.spaceBetween,
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Flex(
-                                  direction: Axis.horizontal,
+                                Wrap(
+                                  runAlignment: WrapAlignment.spaceBetween,
+                                  alignment: WrapAlignment.spaceBetween,
                                   children: [
-                                    Expanded(
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(bottom: 8),
-                                        child: Text(c.dateFormatterSimple
-                                            .format(c.ultimoJogo().data ?? DateTime.now())),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(bottom: 8),
-                                        child: Align(
-                                          alignment: Alignment.centerRight,
-                                          child: Text(
-                                              "${c.dateFormatterHora.format(c.ultimoJogo().hora ?? DateTime.now())} hrs"),
+                                    Flex(
+                                      direction: Axis.horizontal,
+                                      children: [
+                                        Expanded(
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(bottom: 8),
+                                            child: Text(c.dateFormatterSimple
+                                                .format(c.ultimoJogo().data ?? DateTime.now())),
+                                          ),
                                         ),
-                                      ),
+                                        Expanded(
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(bottom: 8),
+                                            child: Align(
+                                              alignment: Alignment.centerRight,
+                                              child: Text(
+                                                  "${c.dateFormatterHora.format(c.ultimoJogo().hora ?? DateTime.now())} hrs"),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
+                                c.ultimoJogo().emCasa == true
+                                    ? Wrap(
+                                        children: [
+                                          Wrap(
+                                            children: [
+                                              Flex(
+                                                direction: Axis.horizontal,
+                                                children: [
+                                                  Expanded(
+                                                    child: Container(
+                                                      width: 45.0,
+                                                      height: 45.0,
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        image: DecorationImage(
+                                                            image: AssetImage(
+                                                          "assets/images/sport.png",
+                                                        )),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    flex: 2,
+                                                    child: Text(
+                                                      "Sport",
+                                                      style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 18.0),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: Center(
+                                                      child: Text(
+                                                        c.ultimoJogo().placarLocal.toString(),
+                                                        style: TextStyle(
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 18.0),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                          Wrap(
+                                            children: [
+                                              Flex(
+                                                direction: Axis.horizontal,
+                                                children: [
+                                                  Expanded(
+                                                    child: Container(
+                                                      width: 55.0,
+                                                      height: 55.0,
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        image: DecorationImage(
+                                                          image: AssetImage(
+                                                            "assets/images/generico.png",
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    flex: 2,
+                                                    child: Text(
+                                                      c.ultimoJogo().adversario ?? "",
+                                                      style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 18.0),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: Center(
+                                                      child: Text(
+                                                        c.ultimoJogo().placarAdversario.toString(),
+                                                        style: TextStyle(
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 18.0),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      )
+                                    : Wrap(
+                                        children: [
+                                          Wrap(
+                                            children: [
+                                              Flex(
+                                                direction: Axis.horizontal,
+                                                children: [
+                                                  Expanded(
+                                                    child: Container(
+                                                      width: 55.0,
+                                                      height: 55.0,
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        image: DecorationImage(
+                                                          image: AssetImage(
+                                                            "assets/images/generico.png",
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    flex: 2,
+                                                    child: Text(
+                                                      c.ultimoJogo().adversario ?? "",
+                                                      style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 18.0),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: Center(
+                                                      child: Text(
+                                                        c.ultimoJogo().placarAdversario.toString(),
+                                                        style: TextStyle(
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 18.0),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                          Wrap(
+                                            children: [
+                                              Flex(
+                                                direction: Axis.horizontal,
+                                                children: [
+                                                  Expanded(
+                                                    child: Container(
+                                                      width: 45.0,
+                                                      height: 45.0,
+                                                      decoration: BoxDecoration(
+                                                        shape: BoxShape.circle,
+                                                        image: DecorationImage(
+                                                            image: AssetImage(
+                                                          "assets/images/sport.png",
+                                                        )),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    flex: 2,
+                                                    child: Text(
+                                                      "Sport",
+                                                      style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 18.0),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: Center(
+                                                      child: Text(
+                                                        c.ultimoJogo().placarLocal.toString(),
+                                                        style: TextStyle(
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 18.0),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: c.ultimoJogo().isCancelado == true
+                                      ? Text(
+                                          "Jogo Cancelado",
+                                          style: TextStyle(color: Colors.red),
+                                        )
+                                      : Text(
+                                          c.ultimoJogo().local ?? "",
+                                        ),
+                                ),
                               ],
-                            ),
-                            c.ultimoJogo().emCasa == true
-                                ? Wrap(
-                                    children: [
-                                      Wrap(
-                                        children: [
-                                          Flex(
-                                            direction: Axis.horizontal,
-                                            children: [
-                                              Expanded(
-                                                child: Container(
-                                                  width: 45.0,
-                                                  height: 45.0,
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    image: DecorationImage(
-                                                        image: AssetImage(
-                                                      "assets/images/sport.png",
-                                                    )),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                flex: 2,
-                                                child: Text(
-                                                  "Sport",
-                                                  style: TextStyle(
-                                                      fontWeight: FontWeight.bold, fontSize: 18.0),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Center(
-                                                  child: Text(
-                                                    c.ultimoJogo().placarLocal.toString(),
-                                                    style: TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        fontSize: 18.0),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      Wrap(
-                                        children: [
-                                          Flex(
-                                            direction: Axis.horizontal,
-                                            children: [
-                                              Expanded(
-                                                child: Container(
-                                                  width: 55.0,
-                                                  height: 55.0,
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    image: DecorationImage(
-                                                      image: AssetImage(
-                                                        "assets/images/generico.png",
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                flex: 2,
-                                                child: Text(
-                                                  c.ultimoJogo().adversario ?? "",
-                                                  style: TextStyle(
-                                                      fontWeight: FontWeight.bold, fontSize: 18.0),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Center(
-                                                  child: Text(
-                                                    c.ultimoJogo().placarAdversario.toString(),
-                                                    style: TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        fontSize: 18.0),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  )
-                                : Wrap(
-                                    children: [
-                                      Wrap(
-                                        children: [
-                                          Flex(
-                                            direction: Axis.horizontal,
-                                            children: [
-                                              Expanded(
-                                                child: Container(
-                                                  width: 55.0,
-                                                  height: 55.0,
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    image: DecorationImage(
-                                                      image: AssetImage(
-                                                        "assets/images/generico.png",
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                flex: 2,
-                                                child: Text(
-                                                  c.ultimoJogo().adversario ?? "",
-                                                  style: TextStyle(
-                                                      fontWeight: FontWeight.bold, fontSize: 18.0),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Center(
-                                                  child: Text(
-                                                    c.ultimoJogo().placarAdversario.toString(),
-                                                    style: TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        fontSize: 18.0),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      Wrap(
-                                        children: [
-                                          Flex(
-                                            direction: Axis.horizontal,
-                                            children: [
-                                              Expanded(
-                                                child: Container(
-                                                  width: 45.0,
-                                                  height: 45.0,
-                                                  decoration: BoxDecoration(
-                                                    shape: BoxShape.circle,
-                                                    image: DecorationImage(
-                                                        image: AssetImage(
-                                                      "assets/images/sport.png",
-                                                    )),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                flex: 2,
-                                                child: Text(
-                                                  "Sport",
-                                                  style: TextStyle(
-                                                      fontWeight: FontWeight.bold, fontSize: 18.0),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Center(
-                                                  child: Text(
-                                                    c.ultimoJogo().placarLocal.toString(),
-                                                    style: TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        fontSize: 18.0),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 10),
-                              child: c.ultimoJogo().isCancelado == true
-                                  ? Text(
-                                      "Jogo Cancelado",
-                                      style: TextStyle(color: Colors.red),
-                                    )
-                                  : Text(
-                                      c.ultimoJogo().local ?? "",
-                                    ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

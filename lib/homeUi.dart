@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sport/HomeVisitante.dart';
+import 'package:sport/agendaUi.dart';
 import 'package:sport/calendarioJogosUi.dart';
 import 'package:sport/controller/controller.dart';
 import 'package:sport/detalhesJogosUi.dart';
@@ -40,9 +41,15 @@ class _HomeUiState extends State<HomeUi> {
               ),
             ),
             ListTile(
-              title: const Text('Calendário de Jogos'),
+              title: const Text('Tabela de Jogos'),
               onTap: () {
                 Get.to(() => Calendariojogosui());
+              },
+            ),
+            ListTile(
+              title: const Text('Calendário de Jogos'),
+              onTap: () {
+                Get.to(() => AgendaUi());
               },
             ),
             ListTile(
@@ -117,7 +124,7 @@ class _HomeUiState extends State<HomeUi> {
                                                       child: Padding(
                                                         padding: const EdgeInsets.all(8.0),
                                                         child: Card(
-                                                            color: Colors.green[600],
+                                                            color: Get.theme.colorScheme.primary,
                                                             child: Center(
                                                                 child: Padding(
                                                               padding: const EdgeInsets.all(2.0),
@@ -386,7 +393,7 @@ class _HomeUiState extends State<HomeUi> {
                                                 child: Padding(
                                                   padding: const EdgeInsets.all(8.0),
                                                   child: Card(
-                                                      color: Colors.green[600],
+                                                      color: Get.theme.colorScheme.primary,
                                                       child: Center(
                                                           child: Padding(
                                                         padding: const EdgeInsets.all(2.0),

@@ -9,27 +9,26 @@ import 'detalhesJogosUi.dart';
 
 final Controller c = Get.put(Controller());
 
-class Calendariojogosui extends StatelessWidget {
-  Calendariojogosui({super.key});
-
+cadastro(BuildContext context) {
   RxBool emcasa = false.obs;
+  TimeOfDay? time = TimeOfDay.now();
+  DateTime? date = DateTime.now();
+  TextEditingController local = TextEditingController();
+  TextEditingController tipoJogo = TextEditingController();
+  TextEditingController adversario = TextEditingController();
+  GlobalKey<FormState> formKey2 = GlobalKey<FormState>();
 
-  cadastro(BuildContext context) {
-    TimeOfDay? time = TimeOfDay.now();
-    DateTime? date = DateTime.now();
-    TextEditingController local = TextEditingController();
-    TextEditingController tipoJogo = TextEditingController();
-    TextEditingController adversario = TextEditingController();
-
-    return showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return Obx(
-          () => AlertDialog(
-            title: const Text("Cadastro"),
-            content: SingleChildScrollView(
-              child: SizedBox(
-                width: context.isPhone ? Get.width : context.width / 3,
+  return showDialog<void>(
+    context: context,
+    builder: (BuildContext context) {
+      return Obx(
+        () => AlertDialog(
+          title: const Text("Cadastro"),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: context.isPhone ? Get.width : context.width / 3,
+              child: Form(
+                key: formKey2,
                 child: Wrap(
                   children: [
                     Padding(
@@ -87,7 +86,9 @@ class Calendariojogosui extends StatelessWidget {
                     ),
                     Padding(
                       padding: const EdgeInsets.all(2.0),
-                      child: TextField(
+                      child: TextFormField(
+                        validator: (value) =>
+                            value == null || value.isEmpty ? "Campo obrigatorio" : null,
                         inputFormatters: [FirstLetterTextFormatter()],
                         textCapitalization: TextCapitalization.sentences,
                         controller: local,
@@ -96,7 +97,9 @@ class Calendariojogosui extends StatelessWidget {
                     ),
                     Padding(
                       padding: const EdgeInsets.all(2.0),
-                      child: TextField(
+                      child: TextFormField(
+                        validator: (value) =>
+                            value == null || value.isEmpty ? "Campo obrigatorio" : null,
                         inputFormatters: [FirstLetterTextFormatter()],
                         textCapitalization: TextCapitalization.sentences,
                         controller: adversario,
@@ -105,7 +108,7 @@ class Calendariojogosui extends StatelessWidget {
                     ),
                     Padding(
                       padding: const EdgeInsets.all(2.0),
-                      child: DropDownSearchField(
+                      child: DropDownSearchFormField(
                         textFieldConfiguration: TextFieldConfiguration(
                           controller: tipoJogo,
                           decoration: const InputDecoration(hintText: "Tipo", filled: true),
@@ -121,23 +124,27 @@ class Calendariojogosui extends StatelessWidget {
                         onSuggestionSelected: (data) {
                           tipoJogo.text = data;
                         },
+                        validator: (value) => value == "" ? "Campo obrigatorio" : null,
                         displayAllSuggestionWhenTap: true,
-                        isMultiSelectDropdown: false,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text("Cancelar"),
-              ),
-              TextButton(
-                onPressed: () async {
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text("Cancelar"),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (!formKey2.currentState!.validate()) {
+                  return;
+                } else {
                   await c.createJogo(JogosData(
                     data: date,
                     hora: DateTime(0, 0, 0, time!.hour, time!.minute),
@@ -163,15 +170,19 @@ class Calendariojogosui extends StatelessWidget {
                       "ATAE": null
                     },
                   ));
-                },
-                child: const Text("Salvar"),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+                }
+              },
+              child: const Text("Salvar"),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class Calendariojogosui extends StatelessWidget {
+  Calendariojogosui({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -180,7 +191,7 @@ class Calendariojogosui extends StatelessWidget {
           ? SizedBox()
           : FloatingActionButton(
               onPressed: () {
-                cadastro(context).whenComplete(() => emcasa.value = false);
+                cadastro(context);
               },
               child: const Icon(Icons.add),
             ),
@@ -259,7 +270,7 @@ class Calendariojogosui extends StatelessWidget {
                                               child: Padding(
                                                 padding: const EdgeInsets.all(8.0),
                                                 child: Card(
-                                                    color: Colors.green[600],
+                                                    color: Get.theme.colorScheme.primary,
                                                     child: Center(
                                                         child: Padding(
                                                       padding: const EdgeInsets.all(2.0),
@@ -480,7 +491,10 @@ class Calendariojogosui extends StatelessWidget {
                                       child: e.isCancelado == true
                                           ? Text(
                                               "Jogo Cancelado",
-                                              style: TextStyle(color: Colors.red, fontSize: 13.5),
+                                              style: TextStyle(
+                                                  color: Colors.red,
+                                                  fontSize: 13.5,
+                                                  fontWeight: FontWeight.bold),
                                             )
                                           : Text(
                                               e.local ?? "",

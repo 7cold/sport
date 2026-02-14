@@ -136,6 +136,27 @@ class Controller extends GetxController {
     return gols;
   }
 
+  List<JogadorData> getJogadoresMarcaram(JogosData jogo) {
+    List<JogadorData> list = [];
+
+    relJogo
+        .where((p0) => p0.idJogo == jogo.id)
+        .where((element) => element.gols != 0)
+        .forEach((element) => list.add(searchJogador(element.idJogador ?? 0)));
+
+    return list;
+  }
+
+  List getSubstituicoes(JogosData jogo) {
+    List list = [];
+
+    substituicoes.where((p0) => p0.jogosData == jogo.id).forEach((element) {
+      list.add(element);
+    });
+
+    return list;
+  }
+
   num getNumJogos(int idJogador) {
     return relJogo.where((element) => element.idJogador == idJogador).length;
   }
@@ -239,6 +260,7 @@ class Controller extends GetxController {
     jogos.add(jogosData);
     sortJogos();
     loading.value = false;
+    Get.forceAppUpdate();
     Get.back();
     toastification.show(
       type: ToastificationType.success,
@@ -291,6 +313,7 @@ class Controller extends GetxController {
       "numero": jogadorData.numero,
       "posicao": jogadorData.posicao,
       "ativo": true,
+      "foto": jogadorData.foto,
     }).select();
 
     jogadorData.id = data[0]['id'];
@@ -452,6 +475,7 @@ class Controller extends GetxController {
           "nome": jData.nome,
           "numero": jData.numero,
           "posicao": jData.posicao,
+          "foto": jData.foto,
         })
         .eq('id', jData.id ?? 0)
         .then((value) {

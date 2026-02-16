@@ -5,17 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hugeicons/hugeicons.dart';
 import 'package:responsive_ui/responsive_ui.dart';
-import 'package:sport/calendarioJogosUi.dart';
+import 'package:sport/calendarioJogos/calendarioJogosUi.dart';
 import 'package:sport/controller/controller.dart';
 import 'package:sport/data/jogador_data.dart';
-import 'package:sport/detalhesJogosUi.dart';
+import 'package:sport/detalheJogos/detalhesJogosUi.dart';
 import 'package:sport/homeUi.dart';
 import 'package:sport/login.dart';
-
 import 'package:widgets_to_image/widgets_to_image.dart';
-import 'package:sport/plantel.dart';
+import 'package:sport/plantel/plantel.dart';
 import 'package:sport/rankingArtilhariaGeralUi.dart';
-
 import 'package:path_provider/path_provider.dart';
 import 'package:image_downloader_web/image_downloader_web.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;

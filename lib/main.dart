@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart';
 import 'package:get/get.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:sport/controller/controller.dart';
 import 'package:sport/root.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:toastification/toastification.dart';
@@ -18,6 +20,8 @@ main() async {
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNreW9rZnhsZnNtbWt0b2d2YnJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU4NjMxMjIsImV4cCI6MjA1MTQzOTEyMn0.G8xwHxqVKo0VqASMlg7vXlxhJAZ2KiQtYU4QTZIKzn8',
   );
+
+  Get.put(Controller());
 
   runApp(const MyApp());
 }
@@ -34,12 +38,15 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return ToastificationWrapper(
       child: GetMaterialApp(
+        builder: (_, child) =>
+            FAnimatedTheme(data: FThemes.zinc.light, child: FToaster(child: child!)),
         title: "Sport",
         opaqueRoute: true,
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
+          FLocalizations.delegate,
         ],
         locale: const Locale('pt', 'BR'),
         supportedLocales: const [Locale('pt', 'BR')],

@@ -36,7 +36,7 @@ dependencies:
   syncfusion_flutter_charts: ^32.2.4
   syncfusion_flutter_core: ^32.2.4
   syncfusion_flutter_datepicker: ^32.2.4
-  forui: ^0.17.0
+  forui: ^0.16.0
 
 dev_dependencies:
   flutter_test:

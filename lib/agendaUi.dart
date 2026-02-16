@@ -1,10 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sport/calendarioJogosUi.dart';
+import 'package:sport/calendarioJogos/core.dart';
 import 'package:sport/controller/controller.dart';
 import 'package:sport/data/jogos_data.dart';
-import 'package:sport/detalhesJogosUi.dart';
+import 'package:sport/detalheJogos/detalhesJogosUi.dart';
 import 'package:syncfusion_flutter_calendar/calendar.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 
@@ -24,7 +24,7 @@ class AgendaUi extends StatelessWidget {
                 heroTag: null,
                 elevation: 3,
                 onPressed: () {
-                  cadastro(context);
+                  cadastroJogos(context);
                 },
                 child: const Icon(CupertinoIcons.add)),
             SizedBox(width: 8),

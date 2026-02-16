@@ -53,7 +53,6 @@ class Controller extends GetxController {
     substituicoes.value = [];
     final data = await supabase.from('substituicoes').select();
     for (var x in data) {
-      print(x);
       SubstituicoesData subs = SubstituicoesData.fromJson(x);
       substituicoes.add(subs);
     }
@@ -134,6 +133,28 @@ class Controller extends GetxController {
         .forEach((element) => gols = gols + (element.gols ?? 0));
 
     return gols;
+  }
+
+  num getNumCV(int idJogador, int idJogo) {
+    num cv = 0;
+
+    relJogo
+        .where((element) => element.idJogador == idJogador)
+        .where((element) => element.idJogo == idJogo)
+        .forEach((element) => cv = cv + (element.cardV ?? 0));
+
+    return cv;
+  }
+
+  num getNumCA(int idJogador, int idJogo) {
+    num ca = 0;
+
+    relJogo
+        .where((element) => element.idJogador == idJogador)
+        .where((element) => element.idJogo == idJogo)
+        .forEach((element) => ca = ca + (element.cardA ?? 0));
+
+    return ca;
   }
 
   List<JogadorData> getJogadoresMarcaram(JogosData jogo) {
@@ -415,7 +436,7 @@ class Controller extends GetxController {
       type: ToastificationType.success,
       style: ToastificationStyle.flatColored,
       context: Get.context, // optional if you use ToastificationWrapper
-      title: const Text("Gol adicionado com sucesso!"),
+      title: const Text("Alterado com sucesso!"),
       autoCloseDuration: const Duration(seconds: 5),
     );
 
@@ -428,6 +449,50 @@ class Controller extends GetxController {
     await supabase
         .from('relacionados_jogo')
         .update({"assistencias": r.assistencias})
+        .eq('id', r.id ?? 0)
+        .then((value) {
+          relJogo.where((p0) => p0.id == r.id).forEach((e) => e = r);
+        });
+
+    toastification.show(
+      type: ToastificationType.success,
+      style: ToastificationStyle.flatColored,
+      context: Get.context, // optional if you use ToastificationWrapper
+      title: const Text("Editado com sucesso!"),
+      autoCloseDuration: const Duration(seconds: 5),
+    );
+
+    loading.value = false;
+  }
+
+  incrementCV(RelacionadosjogoData r) async {
+    loading.value = true;
+
+    await supabase
+        .from('relacionados_jogo')
+        .update({"cardV": r.cardV})
+        .eq('id', r.id ?? 0)
+        .then((value) {
+          relJogo.where((p0) => p0.id == r.id).forEach((e) => e = r);
+        });
+
+    toastification.show(
+      type: ToastificationType.success,
+      style: ToastificationStyle.flatColored,
+      context: Get.context, // optional if you use ToastificationWrapper
+      title: const Text("Editado com sucesso!"),
+      autoCloseDuration: const Duration(seconds: 5),
+    );
+
+    loading.value = false;
+  }
+
+  incrementCA(RelacionadosjogoData r) async {
+    loading.value = true;
+
+    await supabase
+        .from('relacionados_jogo')
+        .update({"cardA": r.cardA})
         .eq('id', r.id ?? 0)
         .then((value) {
           relJogo.where((p0) => p0.id == r.id).forEach((e) => e = r);

@@ -55,7 +55,11 @@ class JogadorData {
     assistencias = json['relacionados_jogo'] == []
         ? 0
         : json['relacionados_jogo'].fold(0, (soma, item) => soma + (item['assistencias'] ?? 0));
-    cartaoAmarelo = json['cardA'];
-    cartaoVermelho = json['cardV'];
+    cartaoAmarelo = json['relacionados_jogo'] == []
+        ? 0
+        : json['relacionados_jogo'].fold(0, (soma, item) => soma + (item['cardA'] ?? 0));
+    cartaoVermelho = json['relacionados_jogo'] == []
+        ? 0
+        : json['relacionados_jogo'].fold(0, (soma, item) => soma + (item['cardV'] ?? 0));
   }
 }

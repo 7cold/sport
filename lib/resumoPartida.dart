@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -9,7 +7,7 @@ import 'package:sport/HomeVisitante.dart';
 import 'package:sport/data/jogador_data.dart';
 import 'package:sport/data/jogos_data.dart';
 import 'package:sport/data/substituicoes_data.dart';
-import 'package:sport/detalhesJogosUi.dart';
+import 'package:sport/detalheJogos/detalhesJogosUi.dart';
 import 'package:sport/rankingArtilhariaGeralUi.dart';
 import 'package:widgets_to_image/widgets_to_image.dart';
 
